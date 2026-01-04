@@ -9,9 +9,9 @@ NORMAL = 0
 
 def RAKT(gen, task, ES, fitness_arr, selected_task, alpha, F, CR, population, dim_max):
 
-    nice_gen = np.zeros(num_task + 1)
+    nice_gen = np.zeros(len(task) + 1)
     num_task = 10
-    for i in range(num_task + 1):
+    for i in range(1, num_task + 1):
         
         if ES[i] == NORMAL:
             task[i], fitness_arr[i], nice_gen[i] = DE(i, task[i], fitness_arr[i], F, CR, population)
