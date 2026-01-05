@@ -14,14 +14,14 @@ def ESE(task, gen, Or, Od, Nice_gen, r, T):
         ## toạ độ trung bình hiện tại
         avg_current = np.mean(task[i], axis=0)
         
-        r[gen] = np.sum(Nice_gen[i][gen - delta_g : gen]) / (delta_g * population)
+        r[gen][i] = np.sum(Nice_gen[gen - delta_g : gen]) / (delta_g * population)
         
         distance = np.linalg.norm(task[i] - avg_current, axis = 1)
-        T[gen] = np.mean(distance)
+        T[gen][i] = np.mean(distance)
         
-        if r[gen] <= Or: #STAGNATION
+        if r[gen][i] <= Or: #STAGNATION
             ES[i] = 1
-        elif T[gen] <= T[gen - delta_g] * Od: #EXPLOITATION
+        elif T[gen][i] <= T[gen - delta_g][i] * Od: #EXPLOITATION
             ES[i] = 2
         
     return ES

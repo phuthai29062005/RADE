@@ -42,7 +42,7 @@ def cauchy(child, dim):
     new_child = np.clip(new_child, 0, 1)
     return new_child
 
-def DE(x, task, fitness_arr, F, CR, population):
+def DE(x, task, fitness_arr, F, CR, population, dim_max):
     
     new_child = []
     shift, dim, bounds = get_task_info(f"T{x}")
@@ -75,7 +75,7 @@ def DE(x, task, fitness_arr, F, CR, population):
     
     return new_task, new_fitness, nice_gen
 
-def DE_STAG(x, task, selected_task, fitness_arr, alpha, F, CR, population):
+def DE_STAG(x, task, selected_task, fitness_arr, alpha, F, CR, population, dim_max):
     
     new_child = []
     mean_x = np.mean(task[x], axis=0)
@@ -87,14 +87,14 @@ def DE_STAG(x, task, selected_task, fitness_arr, alpha, F, CR, population):
     
     shift, dim, bounds = get_task_info(f"T{x}")
     for i in range(population):
-        new_child.append(((task[i], fitness_arr[i]), 0))
+        new_child.append(((task[x][i], fitness_arr[x][i]), 0))
     
     for i in range(population):
         
         rate = np.random.uniform(0, 1)
         if rate < rmp:
         
-            child = cauchy(mean_u, dim)
+            child = cauchy(mean_u, dim_max)
             real_gen = bounds[0] + child[:dim] * (bounds[1] - bounds[0])
             fitness = calculate_objective_function(f"T{x}", real_gen, shift)
             new_child.append(((child, fitness), 1))
@@ -125,7 +125,7 @@ def DE_STAG(x, task, selected_task, fitness_arr, alpha, F, CR, population):
     
     return new_task, new_fitness, nice_gen                   
 
-def DE_EXP(x, task, selected_task, fitness_arr, alpha, F, CR, population):
+def DE_EXP(x, task, selected_task, fitness_arr, alpha, F, CR, population, dim_max):
     
     new_child = []
     mean_x = np.mean(task[x], axis=0)
@@ -137,7 +137,7 @@ def DE_EXP(x, task, selected_task, fitness_arr, alpha, F, CR, population):
     
     shift, dim, bounds = get_task_info(f"T{x}")
     for i in range(population):
-        new_child.append(((task[i], fitness_arr[i]), 0))
+        new_child.append(((task[x][i], fitness_arr[x][i]), 0))
     
     best_idx = np.argmin(fitness_arr[x])
     x_best = task[x][best_idx]
