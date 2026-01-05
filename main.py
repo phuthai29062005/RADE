@@ -23,7 +23,7 @@ def calculate_fitness(task, i_idx):
 def RADE():
     
     clear_old_logs()
-    generation = 1000
+    generation = 5000
     population = 100
     seed = 1
     F = 0.7 # scaling factor
@@ -77,8 +77,8 @@ def RADE():
             
              
             task, fitness_arr, Nice_gen[i] = RAKT(i, task, ES, fitness_arr, selected_task, alpha, F, CR, population, dim_max)
-            print(ES) 
-            print(Nice_gen[i])
+            #print(ES) 
+            #print(Nice_gen[i])
     
     avg_fitness_matrix = avg_fitness/ seed
 
