@@ -20,7 +20,7 @@ def RAKS(task, ES):
             continue
         
         min_kld = float('inf')
-        best_source = -1
+        best_source = i
         avg_task = np.mean(task[i], axis=0)
        
             
