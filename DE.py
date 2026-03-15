@@ -66,11 +66,9 @@ def DE(x, task, fitness_arr, F, CR, population, dim_max):
     
     survivors = new_child[:population]
     
-    # 4. Tách dữ liệu để trả về
     new_task = np.array([item[0][0] for item in survivors])
     new_fitness = np.array([item[0][1] for item in survivors])
     
-    # 5. Tính nice_gen (N(gr)) - số lượng con (flag=1) sống sót [cite: 270, 271]
     nice_gen = sum(item[1] for item in survivors)
     
     return new_task, new_fitness, nice_gen
@@ -110,17 +108,13 @@ def DE_STAG(x, task, selected_task, fitness_arr, alpha, F, CR, population, dim_m
             
             new_child.append(((trial, fitness), 1))
 
-
-
     new_child.sort(key = lambda x : x[0][1])
 
     survivors = new_child[:population]
     
-    # 4. Tách dữ liệu để trả về
     new_task = np.array([item[0][0] for item in survivors])
     new_fitness = np.array([item[0][1] for item in survivors])
     
-    # 5. Tính nice_gen (N(gr)) - số lượng con (flag=1) sống sót [cite: 270, 271]
     nice_gen = sum(item[1] for item in survivors)
     
     return new_task, new_fitness, nice_gen                   
@@ -146,17 +140,12 @@ def DE_EXP(x, task, selected_task, fitness_arr, alpha, F, CR, population, dim_ma
         
         rate = np.random.uniform(0, 1)
         if rate < rmp:
-        
-            # --- Chuyển giao liên tác vụ: DE/current-to-best/1 --- 
-            # Chọn r1, r2 từ tập hợp gộp (union_set) [cite: 402]
             r1_idx, r2_idx = np.random.choice(len(union_set), 2, replace=False)
             xr1, xr2 = union_set[r1_idx], union_set[r2_idx]
             
-            # Đột biến theo công thức (15) 
             child = task[x][i] + F * (x_best - task[x][i]) + F * (xr1 - xr2)
             child = np.clip(child, 0, 1)
             
-            # Crossover [cite: 139]
             trial = task[x][i].copy()
             j_rand = np.random.randint(0, dim)
             trial = crossover(trial, child, j_rand, CR)
@@ -176,17 +165,13 @@ def DE_EXP(x, task, selected_task, fitness_arr, alpha, F, CR, population, dim_ma
             
             new_child.append(((trial, fitness), 1))
 
-
-
     new_child.sort(key = lambda x : x[0][1])
 
     survivors = new_child[:population]
     
-    # 4. Tách dữ liệu để trả về
     new_task = np.array([item[0][0] for item in survivors])
     new_fitness = np.array([item[0][1] for item in survivors])
     
-    # 5. Tính nice_gen (N(gr)) - số lượng con (flag=1) sống sót [cite: 270, 271]
     nice_gen = sum(item[1] for item in survivors)
     
-    return new_task, new_fitness, nice_gen                   
+    return new_task, new_fitness, nice_gen

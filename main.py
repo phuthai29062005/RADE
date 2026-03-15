@@ -1,115 +1,162 @@
-import numpy as np
 import time
+import numpy as np
+
 from benchmark import *
 from ESE import ESE
 from RAKS import RAKS
 from RAKT import RAKT
 
-def log_to_file(fitness):
-    with open("RADE.txt", "a") as f:
-        f.write(f"{fitness}\n")
 
-def log_to_file_ES(ES, selected_task, r, T, T_prev):
-    with open("RADE_ES.txt", "a") as f:
-        f.write(f"ES {ES}\n")
-        f.write(f"Selected Task {selected_task}\n")
-        f.write(f"R {r}\n")
-        f.write(f"T {T}\n")
-        f.write(f"T_prev {T_prev}\n")
-        f.write("\n")
-    
-def clear_old_logs():
-    with open("RADE.txt", "w") as f:
-        f.write("Fitness\n")
+def log_to_file(fitness_by_task):
+    with open(f"RADE_{ACTIVE_PROBLEM_ID}.txt", "a") as f:
+        f.write(f"{fitness_by_task}\n")
 
-def clear_old_logs_ES():
-    with open("RADE_ES.txt", "w") as f:
-        f.write("ES\n")
 
-        
-def calculate_fitness(task, i_idx):
-    real_gen = task.copy()
-    shift, dim, bounds = get_task_info(f"T{i_idx}")
-    real_gen = bounds[0] + real_gen[:dim] * (bounds[1] - bounds[0])
-    fitness = calculate_objective_function(f"T{i_idx}", real_gen, shift)
-    return fitness
+def calculate_fitness(individual, task_idx):
+    """
+    Decode cá thể từ unified space [0,1]^D về miền thật của task rồi tính fitness.
+    Interface giữ đúng với benchmark.py hiện tại.
+    """
+    shift, dim, bounds = get_task_info(f"T{task_idx}")
+    real_x = bounds[0] + individual[:dim] * (bounds[1] - bounds[0])
+    return calculate_objective_function(f"T{task_idx}", real_x, shift)
+
 
 def RADE():
-    
-    clear_old_logs()
-    clear_old_logs_ES()
-    generation = 5000
+    # ===== Tham số theo paper =====
+    num_task = NUM_TASKS
     population = 100
-    seed = 10
-    F = 0.7 # scaling factor
-    CR = 0.5 # crossover rate
-    Or = 0.1 # threshold for stagnation detection
-    Od = 0.9 # threshold for diversity assessment
-    alpha = 0.2 # knowledge transfer balancing coefficient
-    delta_g = 10 # window
-    num_task = 10
+    runs = 20
+    F = 0.7
+    CR = 0.5
+    Or = 0.1       # Theta_r
+    Od = 0.9       # Theta_d
+    alpha = 0.2
+    delta_g = 10
+    max_fes = 5_000_000
+
+    # Tính generation sao cho tổng số lần evaluate = max_fes,
+    # có tính cả population khởi tạo.
+    init_fes = num_task * population
+    fes_per_generation = num_task * population
+    remaining_fes = max_fes - init_fes
+    if remaining_fes < 0 or remaining_fes % fes_per_generation != 0:
+        raise ValueError("max_fes không tương thích với num_task và population hiện tại.")
+    generation = remaining_fes // fes_per_generation
+
+    # Dùng để lưu đường cong hội tụ trung bình theo run
     avg_fitness = np.zeros((generation + 1, num_task + 1))
-    
+
+    # Dùng để lưu best fitness cuối cùng của mỗi run trên từng task
+    matrix_fitness = np.zeros((runs, num_task))
+
+    # Tìm dim_max trong benchmark
     dim_max = 0
-    for i in range(1, num_task + 1):
-        _, dim, _ = get_task_info(f"T{i}")
-        if dim > dim_max:
-            dim_max = dim
-        
-    for test in range(seed):
-        
-        print(f"Starting Run {test + 1}/{seed}...")
-        task = [[] for _ in range(num_task + 1)]
-        fitness_arr = [np.zeros(population) for _ in range(num_task + 1)]
+    for t in range(1, num_task + 1):
+        _, dim, _ = get_task_info(f"T{t}")
+        dim_max = max(dim_max, dim)
+
+    print(
+        f"CEC19-P{ACTIVE_PROBLEM_ID} | {num_task} tasks | dim={dim_max} | "
+        f"{generation} gens | {runs} runs | maxFEs={max_fes}"
+    )
+
+    # Xóa log cũ để tránh append lẫn kết quả cũ
+    open(f"RADE_{ACTIVE_PROBLEM_ID}.txt", "w").close()
+
+    for run in range(runs):
+        np.random.seed(run + 1)
+        print(f"Starting Run {run + 1}/{runs}...")
+
+        # 1-based indexing cho tiện giữ nguyên logic hiện tại
+        task = [None] * (num_task + 1)
+        fitness_arr = [None] * (num_task + 1)
         Nice_gen = np.zeros((generation + 1, num_task + 1))
         r = np.zeros((generation + 1, num_task + 1))
         T = np.zeros((generation + 1, num_task + 1))
         ES = np.zeros(num_task + 1)
-        selected_task = np.zeros(num_task + 1)
-        
-        for i in range(num_task + 1):
-            _, dim, _ = get_task_info(f"T{i}")
-            task[i] = np.random.uniform(0, 1, (population, dim_max))
-            if i > 0:
-                for j in range(population):
-                    fitness = calculate_fitness(task[i][j], i)
-                    fitness_arr[i][j] = fitness
-                    
-            
-        for i in range(1, generation + 1):
-            
-            for t in range(1, num_task + 1):
-                best_fitness = np.min(fitness_arr[t])
-                avg_fitness[i][t] += best_fitness
-                
-            if i % 100 == 0:     
-                print(f"Generation {i} completed.")
-                
-            if i % delta_g == 1 and i > 10:
-                ## đánh giá hiệu năng
-                ES = ESE(task, i, Or, Od, Nice_gen, r, T)
-                selected_task = RAKS(task, ES)
-                x = T[i - delta_g][1:] * Od
-                log_to_file_ES(ES[1:].tolist(), selected_task[1:], r[i][1:].tolist(), T[i][1:].tolist(), x.tolist())
-            
-             
-            task, fitness_arr, Nice_gen[i] = RAKT(i, task, ES, fitness_arr, selected_task, alpha, F, CR, population, dim_max)
-            for t in range(1, num_task + 1):
-                avg_current = np.mean(task[t], axis=0)
-                distance = np.linalg.norm(task[t] - avg_current, axis = 1)
-                T[i][t] = np.mean(distance)
-            #print(ES) 
-            #print(Nice_gen[i])
-    
-    avg_fitness_matrix = avg_fitness/ seed
+        selected_task = np.arange(num_task + 1, dtype=int)
 
-    for i in range(1, generation + 1):
-        log_to_file(avg_fitness_matrix[i, 1:].tolist())
-        
+        # ===== Khởi tạo quần thể và fitness ban đầu =====
+        for t in range(1, num_task + 1):
+            task[t] = np.random.uniform(0.0, 1.0, (population, dim_max))
+            fitness_arr[t] = np.zeros(population)
+
+            for j in range(population):
+                fitness_arr[t][j] = calculate_fitness(task[t][j], t)
+
+            # diversity tại generation 0
+            _, dim, _ = get_task_info(f"T{t}")
+            task_coords = task[t][:, :dim]
+            centroid = np.mean(task_coords, axis=0)
+            distances = np.linalg.norm(task_coords - centroid, axis=1)
+            T[0][t] = np.mean(distances)
+
+        # ===== Tiến hóa =====
+        for g in range(1, generation + 1):
+            # Lưu best fitness TRƯỚC khi bước sang generation g
+            # (đường cong hội tụ trung bình qua các run)
+            for t in range(1, num_task + 1):
+                avg_fitness[g][t] += np.min(fitness_arr[t])
+
+            if g % 100 == 0:
+                print(f"  Generation {g}/{generation} completed.")
+
+            # Đúng paper: chỉ kích hoạt ESE + RAKS khi g mod Δg == 0
+            if g % delta_g == 0:
+                ES = ESE(task, g, Or, Od, Nice_gen, r, T)
+                selected_task = RAKS(task, ES)
+            else:
+                ES.fill(0)
+                selected_task = np.arange(num_task + 1, dtype=int)
+
+            task, fitness_arr, Nice_gen[g] = RAKT(
+                g,
+                task,
+                ES,
+                fitness_arr,
+                selected_task,
+                alpha,
+                F,
+                CR,
+                population,
+                dim_max,
+            )
+
+            # Cập nhật diversity sau khi hoàn tất generation g
+            for t in range(1, num_task + 1):
+                _, dim, _ = get_task_info(f"T{t}")
+                task_coords = task[t][:, :dim]
+                centroid = np.mean(task_coords, axis=0)
+                distances = np.linalg.norm(task_coords - centroid, axis=1)
+                T[g][t] = np.mean(distances)
+
+        # ===== Lưu best fitness cuối cùng của run hiện tại =====
+        for t in range(1, num_task + 1):
+            matrix_fitness[run, t - 1] = np.min(fitness_arr[t])
+
+    # Ma trận kết quả cuối: runs x tasks
+    np.savetxt(
+        f"RADE_Matrix_{ACTIVE_PROBLEM_ID}.txt",
+        matrix_fitness,
+        fmt="%.6e",
+        delimiter="\t",
+    )
+
+    # Đường cong hội tụ trung bình qua runs
+    avg_fitness_matrix = avg_fitness / runs
+    for g in range(1, generation + 1):
+        log_to_file(avg_fitness_matrix[g, 1:].tolist())
+
+    # AFV cuối cùng: mean best fitness trên K tasks, rồi trung bình qua runs
+    final_mean = np.mean(matrix_fitness)
+    print(f"\nKết quả: Mean best fitness = {final_mean:.6e}")
+    print(f"Output: RADE_{ACTIVE_PROBLEM_ID}.txt")
+    print(f"Output: RADE_Matrix_{ACTIVE_PROBLEM_ID}.txt")
+
 
 if __name__ == "__main__":
     start_time = time.time()
     RADE()
-    end_time = time.time()
-    elapsed_time = (end_time - start_time) / 60  # Đổi sang phút
-    print(f"Thuật toán chạy trong {elapsed_time:.2f} phút")
+    elapsed = (time.time() - start_time) / 60
+    print(f"Thuật toán chạy trong {elapsed:.2f} phút")
